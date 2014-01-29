@@ -2,6 +2,7 @@
 
 import gevent.monkey; gevent.monkey.patch_all()
 
+import argparse
 import logging
 import logging.config
 import os
@@ -15,6 +16,9 @@ import gevent.socket
 import gevent.server
 import gevent.event
 import yaml
+
+
+__version__ = "0.1.0"
 
 
 class TftpFile(object):
@@ -223,6 +227,11 @@ def main():
             config = yaml.load(file)
         logging.config.dictConfig(config)
 
+    # Parse arguments
+    par = argparse.ArgumentParser(
+        description='Export network device configuration via SNMP')
+    par.add_argument('-V', '--version', action='version', version=__version__)
+    args = par.parse_args()
     # Start server
     server = TftpServer('0.0.0.0:6969')
     server.start()
