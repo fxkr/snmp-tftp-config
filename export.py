@@ -16,6 +16,8 @@ import sys
 import gevent.socket
 import gevent.server
 import gevent.event
+import pysnmp.entity.rfc3413.oneliner.cmdgen as pysnmp
+import pysnmp.proto.rfc1902 as pysnmp_types
 import yaml
 
 
@@ -232,9 +234,11 @@ def main():
     par = argparse.ArgumentParser(
         description='Export network device configuration via SNMP')
     par.add_argument('-V', '--version', action='version', version=__version__)
+    par.add_argument('-c', '--community', default='public')
     par.add_argument('--debug-local-port', dest='local_port', default=69, type=int)
     par.add_argument('--debug-remote-port', dest='remote_port', default=161, type=int)
     par.add_argument('--debug-filename', dest='filename', default=None, type=int)
+    par.add_argument('--debug-no-trigger', dest='no_trigger', action="store_true", default=False)
     par.add_argument('local_addr')
     par.add_argument('remote_addr')
     args = par.parse_args()
@@ -252,6 +256,22 @@ def main():
     server.start()
     file_obj = server.receive(filename)
 
+    # Tell switch to start upload
+    if not args.no_trigger:
+        i = random.randint(100000, 999999)
+        snmp = pysnmp.CommandGenerator()
+        community = pysnmp.CommunityData(args.community)
+        target = pysnmp.UdpTransportTarget((args.remote_addr, args.remote_port))
+        errIndication, errStatus, errIndex, varBinds = snmp.setCmd(community, target,
+            ("1.3.6.1.4.1.9.9.96.1.1.1.1.2.%i" % i, pysnmp_types.Integer(1)),
+            ("1.3.6.1.4.1.9.9.96.1.1.1.1.3.%i" % i, pysnmp_types.Integer(4)),
+            ("1.3.6.1.4.1.9.9.96.1.1.1.1.4.%i" % i, pysnmp_types.Integer(1)),
+            ("1.3.6.1.4.1.9.9.96.1.1.1.1.5.%i" % i, pysnmp_types.IpAddress(args.local_addr)),
+            ("1.3.6.1.4.1.9.9.96.1.1.1.1.6.%i" % i, pysnmp_types.OctetString(filename)))
+        errIndication, errStatus, errIndex, varBinds = snmp.setCmd(community, target,
+            ("1.3.6.1.4.1.9.9.96.1.1.1.1.14.%i" % i, pysnmp_types.Integer(1)))
+    else:
+        print("filename: %s" % filename)
 
     # Wait for upload to finish
     print file_obj.read()
