@@ -6,6 +6,7 @@ import argparse
 import logging
 import logging.config
 import os
+import random
 import socket
 import string
 import StringIO
@@ -231,13 +232,29 @@ def main():
     par = argparse.ArgumentParser(
         description='Export network device configuration via SNMP')
     par.add_argument('-V', '--version', action='version', version=__version__)
+    par.add_argument('--debug-local-port', dest='local_port', default=69, type=int)
+    par.add_argument('--debug-remote-port', dest='remote_port', default=161, type=int)
+    par.add_argument('--debug-filename', dest='filename', default=None, type=int)
+    par.add_argument('local_addr')
+    par.add_argument('remote_addr')
     args = par.parse_args()
-    # Start server
-    server = TftpServer('0.0.0.0:6969')
-    server.start()
 
-    # Await file upload
-    print server.receive("test.txt").read()
+    # Determine random filename
+    if args.filename is None:
+        charset = (string.ascii_lowercase + string.digits)[:32]
+        assert 256 % len(charset) == 0 # even distribution
+        filename = "".join(charset[ord(x) % len(charset)] for x in os.urandom(16))
+    else:
+        filename = args.filename
+
+    # Start server
+    server = TftpServer((args.local_addr, args.local_port))
+    server.start()
+    file_obj = server.receive(filename)
+
+
+    # Wait for upload to finish
+    print file_obj.read()
 
 
 if __name__ == '__main__':
